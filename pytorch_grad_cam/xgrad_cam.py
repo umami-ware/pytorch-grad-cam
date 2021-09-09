@@ -4,8 +4,10 @@ import torch
 from pytorch_grad_cam.base_cam import BaseCAM
 
 class XGradCAM(BaseCAM):
-    def __init__(self, model, target_layer, use_cuda=False, reshape_transform=None):
-        super(XGradCAM, self).__init__(model, target_layer, use_cuda, reshape_transform)
+    def __init__(self, model, target_layer, use_cuda=False, reshape_transform=None,
+    return_model_output=True):
+        super(XGradCAM, self).__init__(model, target_layer, use_cuda, reshape_transform,
+        return_model_output)
 
     def get_cam_weights(self,
                         input_tensor,

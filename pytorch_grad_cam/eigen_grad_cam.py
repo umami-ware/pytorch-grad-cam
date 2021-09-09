@@ -8,9 +8,9 @@ from pytorch_grad_cam.utils.svd_on_activations import get_2d_projection
 # But multiply the activations x gradients
 class EigenGradCAM(BaseCAM):
     def __init__(self, model, target_layer, use_cuda=False, 
-        reshape_transform=None):
+        reshape_transform=None, return_model_output=True):
         super(EigenGradCAM, self).__init__(model, target_layer, use_cuda, 
-            reshape_transform)
+            reshape_transform, return_model_output)
 
     def get_cam_image(self,
                       input_tensor,

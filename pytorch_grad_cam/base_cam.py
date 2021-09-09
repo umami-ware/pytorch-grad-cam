@@ -11,7 +11,9 @@ class BaseCAM:
                  model, 
                  target_layer,
                  use_cuda=False,
-                 reshape_transform=None):
+                 reshape_transform=None,
+                 return_model_output=True):
+
         self.model = model.eval()
         self.target_layer = target_layer
         self.cuda = use_cuda
@@ -20,7 +22,7 @@ class BaseCAM:
         self.reshape_transform = reshape_transform
         self.activations_and_grads = ActivationsAndGradients(self.model, 
             target_layer, reshape_transform)
-
+        self.return_model_output = return_model_output
     def forward(self, input_img):
         return self.model(input_img)
 
@@ -85,6 +87,10 @@ class BaseCAM:
             img = img / np.max(img)
             result.append(img)
         result = np.float32(result)
+
+        if self.return_model_output:
+            return result, output
+
         return result
 
     def forward_augmentation_smoothing(self,
@@ -100,8 +106,13 @@ class BaseCAM:
         cams = []
         for transform in transforms:
             augmented_tensor = transform.augment_image(input_tensor)
-            cam = self.forward(augmented_tensor,
-                target_category, eigen_smooth)
+
+            if self.return_model_output:
+                cam, output = self.forward(augmented_tensor,
+                                target_category, eigen_smooth)
+            else:
+                cam = self.forward(augmented_tensor,
+                    target_category, eigen_smooth)
 
             # The ttach library expects a tensor of size BxCxHxW
             cam = cam[:, None, :, :]
@@ -114,6 +125,9 @@ class BaseCAM:
             cams.append(cam)
 
         cam = np.mean(np.float32(cams), axis=0)
+
+        if self.return_model_output:
+            return cam, output
         return cam
 
     def __call__(self,

@@ -1,18 +1,24 @@
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![Build Status](https://github.com/jacobgil/pytorch-grad-cam/workflows/Tests/badge.svg)
+[![Downloads](https://static.pepy.tech/personalized-badge/grad-cam?period=month&units=international_system&left_color=black&right_color=brightgreen&left_text=Monthly%20Downloads)](https://pepy.tech/project/grad-cam)
+[![Downloads](https://static.pepy.tech/personalized-badge/grad-cam?period=total&units=international_system&left_color=black&right_color=blue&left_text=Total%20Downloads)](https://pepy.tech/project/grad-cam)
+
 # Class Activation Map methods implemented in Pytorch
 
 `pip install grad-cam`
 
+⭐ Comprehensive collection of Pixel Attribution methods for Computer Vision.
+
 ⭐ Tested on many Common CNN Networks and Vision Transformers.
+
+⭐ Works with Classification, Object Detection, and Semantic Segmentation.
 
 ⭐ Includes smoothing methods to make the CAMs look nice.
 
-⭐ Full support for batches of images in all methods.
-
+⭐ High performance: full support for batches of images in all methods.
 
 ![visualization](https://github.com/jacobgil/jacobgil.github.io/blob/master/assets/cam_dog.gif?raw=true
 )
-
-
 
 | Method   | What it does |
 |----------|--------------|
@@ -24,15 +30,20 @@
 | EigenCAM  | Takes the first principle component of the 2D Activations (no class discrimination, but seems to give great results)|
 | EigenGradCAM  | Like EigenCAM but with class discrimination: First principle component of Activations*Grad. Looks like GradCAM, but cleaner|
 | LayerCAM  | Spatially weight the activations by positive gradients. Works better especially in lower layers |
+| FullGrad  | Computes the gradients of the biases from all over the network, and then sums them |
 
+## Visual Examples
 
-### What makes the network think the image label is 'pug, pug-dog' and 'tabby, tabby cat':
-![Dog](https://github.com/jacobgil/pytorch-grad-cam/blob/master/examples/dog.jpg?raw=true) ![Cat](https://github.com/jacobgil/pytorch-grad-cam/blob/master/examples/cat.jpg?raw=true)
+| What makes the network think the image label is 'pug, pug-dog' | What makes the network think the image label is 'tabby, tabby cat' | Combining Grad-CAM with Guided Backpropagation for the 'pug, pug-dog' class |
+| ---------------------------------------------------------------|--------------------|-----------------------------------------------------------------------------|
+ <img src="https://github.com/jacobgil/pytorch-grad-cam/blob/master/examples/dog.jpg?raw=true" width="256" height="256"> | <img src="https://github.com/jacobgil/pytorch-grad-cam/blob/master/examples/cat.jpg?raw=true" width="256" height="256"> | <img src="https://github.com/jacobgil/pytorch-grad-cam/blob/master/examples/cam_gb_dog.jpg?raw=true" width="256" height="256"> |
 
-### Combining Grad-CAM with Guided Backpropagation for the 'pug, pug-dog' class:
-![Combined](https://github.com/jacobgil/pytorch-grad-cam/blob/master/examples/cam_gb_dog.jpg?raw=true)
+## Object Detection and Semantic Segmentation
+| Object Detection | Semantic Segmentation |
+| -----------------|-----------------------|
+| <img src="./examples/both_detection.png" width="256" height="256"> | <img src="./examples/cars_segmentation.png" width="256" height="200"> |
 
-# More Visual Examples
+## Classification
 
 #### Resnet50:
 | Category  | Image | GradCAM  |  AblationCAM |  ScoreCAM |
@@ -52,8 +63,6 @@
 | Dog    | ![](./examples/dog_cat.jfif) | ![](./examples/swinT_dog_gradcam_cam.jpg)     |  ![](./examples/swinT_dog_ablationcam_cam.jpg)   |![](./examples/swinT_dog_scorecam_cam.jpg)   |
 | Cat    | ![](./examples/dog_cat.jfif) | ![](./examples/swinT_cat_gradcam_cam.jpg)     |  ![](./examples/swinT_cat_ablationcam_cam.jpg)   |![](./examples/swinT_cat_scorecam_cam.jpg)   |
 
-It seems that GradCAM++ is almost the same as GradCAM, in
-most networks except VGG where the advantage is larger.
 
 | Network  | Image | GradCAM  |  GradCAM++ |  Score-CAM |  Ablation-CAM |  Eigen-CAM |
 | ---------|-------|----------|------------|------------|---------------|------------|
@@ -65,6 +74,7 @@ most networks except VGG where the advantage is larger.
 # Chosing the Target Layer
 You need to choose the target layer to compute CAM for.
 Some common choices are:
+- FasterRCNN: model.backbone
 - Resnet18 and 50: model.layer4[-1]
 - VGG and densenet161: model.features[-1]
 - mnasnet1_0: model.layers[-1]
@@ -76,31 +86,61 @@ Some common choices are:
 # Using from code as a library
 
 ```python
-from pytorch_grad_cam import GradCAM, ScoreCAM, GradCAMPlusPlus, AblationCAM, XGradCAM, EigenCAM
+from pytorch_grad_cam import GradCAM, ScoreCAM, GradCAMPlusPlus, AblationCAM, XGradCAM, EigenCAM, FullGrad
+from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from pytorch_grad_cam.utils.image import show_cam_on_image
 from torchvision.models import resnet50
 
 model = resnet50(pretrained=True)
-target_layer = model.layer4[-1]
+target_layers = [model.layer4[-1]]
 input_tensor = # Create an input tensor image for your model..
 # Note: input_tensor can be a batch tensor with several images!
 
 # Construct the CAM object once, and then re-use it on many images:
-cam = GradCAM(model=model, target_layer=target_layer, use_cuda=args.use_cuda)
+cam = GradCAM(model=model, target_layers=target_layers, use_cuda=args.use_cuda)
 
-# If target_category is None, the highest scoring category
+# You can also use it within a with statement, to make sure it is freed,
+# In case you need to re-create it inside an outer loop:
+# with GradCAM(model=model, target_layers=target_layers, use_cuda=args.use_cuda) as cam:
+#   ...
+
+# We have to specify the target we want to generate
+# the Class Activation Maps for.
+# If targets is None, the highest scoring category
 # will be used for every image in the batch.
-# target_category can also be an integer, or a list of different integers
-# for every image in the batch.
-target_category = 281
+# Here we use ClassifierOutputTarget, but you can define your own custom targets
+# That are, for example, combinations of categories, or specific outputs in a non standard model.
+targets = [e.g ClassifierOutputTarget(281)]
 
 # You can also pass aug_smooth=True and eigen_smooth=True, to apply smoothing.
 grayscale_cam = cam(input_tensor=input_tensor, target_category=target_category)
 
 # In this example grayscale_cam has only one image in the batch:
 grayscale_cam = grayscale_cam[0, :]
-visualization = show_cam_on_image(rgb_img, grayscale_cam)
+visualization = show_cam_on_image(rgb_img, grayscale_cam, use_rgb=True)
 ```
+
+----------
+
+# Advanced use cases and tutorials:
+
+You can use this package for "custom" deep learning models, for example Object Detection or Semantic Segmentation.
+
+
+You will have to define objects that you can then pass to the CAM algorithms:
+1. A reshape_transform, that aggregates the layer outputs into 2D tensors that will be displayed.
+2. Model Targets, that define what target do you want to compute the visualizations for, for example a specific category, or a list of bounding boxes.
+
+Here you can find detailed examples of how to use this for Object detection, Semantic Segmentation, and Vision Transformers:
+
+- [Notebook tutorial: Class Activation Maps for Object Detection with Faster-RCNN](<tutorials/Class Activation Maps for Object Detection With Faster RCNN.ipynb>)
+
+- [Notebook tutorial: Class Activation Maps for Semantic Segmentation](<tutorials/Class Activation Maps for Semantic Segmentation.ipynb>)
+
+- [How it works with Vision/SwinT transformers](tutorials/vision_transformers.md)
+
+*Contribution request for the community: more tutorials for custom use cases, like YOLO object detection, or image captioning.*
+
 
 ----------
 
@@ -143,91 +183,13 @@ To use with CUDA:
 
 You can choose between:
 
-`GradCAM` , `ScoreCAM`, `GradCAMPlusPlus`, `AblationCAM`, `XGradCAM` , `LayerCAM` and `EigenCAM`.
+`GradCAM` , `ScoreCAM`, `GradCAMPlusPlus`, `AblationCAM`, `XGradCAM` , `LayerCAM`, 'FullGrad' and `EigenCAM`.
 
 Some methods like ScoreCAM and AblationCAM require a large number of forward passes,
 and have a batched implementation.
 
 You can control the batch size with
 `cam.batch_size = `
-
-----------
-
-# How does it work with Vision Transformers
-
-*See [usage_examples/vit_example.py](./usage_examples/vit_example.py)*
-
-In ViT the output of the layers are typically BATCH x 197 x 192.
-In the dimension with 197, the first element represents the class token, and the rest represent the 14x14 patches in the image.
-We can treat the last 196 elements as a 14x14 spatial image, with 192 channels.
-
-To reshape the activations and gradients to 2D spatial images,
-we can pass the CAM constructor a reshape_transform function.
-
-This can also be a starting point for other architectures that will come in the future.
-
-```python
-
-GradCAM(model=model, target_layer=target_layer, reshape_transform=reshape_transform)
-
-def reshape_transform(tensor, height=14, width=14):
-    result = tensor[:, 1 :  , :].reshape(tensor.size(0),
-        height, width, tensor.size(2))
-
-    # Bring the channels to the first dimension,
-    # like in CNNs.
-    result = result.transpose(2, 3).transpose(1, 2)
-    return result
-```
-
-### Which target_layer should we chose for Vision Transformers?
-
-Since the final classification is done on the class token computed in the last attention block,
-the output will not be affected by the 14x14 channels in the last layer.
-The gradient of the output with respect to them, will be 0!
-
-We should chose any layer before the final attention block, for example:
-```python
-target_layer = model.blocks[-1].norm1
-```
-
-----------
-
-# How does it work with Swin Transformers
-
-*See [usage_examples/swinT_example.py](./usage_examples/swinT_example.py)*
-
-In Swin transformer base the output of the layers are typically BATCH x 49 x 1024.
-We can treat the last 49 elements as a 7x7 spatial image, with 1024 channels.
-
-To reshape the activations and gradients to 2D spatial images,
-we can pass the CAM constructor a reshape_transform function.
-
-This can also be a starting point for other architectures that will come in the future.
-
-```python
-
-GradCAM(model=model, target_layer=target_layer, reshape_transform=reshape_transform)
-
-def reshape_transform(tensor, height=7, width=7):
-    result = tensor.reshape(tensor.size(0),
-        height, width, tensor.size(2))
-
-    # Bring the channels to the first dimension,
-    # like in CNNs.
-    result = result.transpose(2, 3).transpose(1, 2)
-    return result
-```
-
-### Which target_layer should we chose for Swin Transformers?
-
-Since the swin transformer is different from ViT, it does not contains `cls_token` as present in ViT,
-therefore we will use all the 7x7 images we get from the last block of the last layer.
-
-We should chose any layer before the final attention block, for example:
-```python
-target_layer = model.layers[-1].blocks[-1].norm1
-```
 
 ----------
 
@@ -274,3 +236,7 @@ Mohammed Bany Muhammad, Mohammed Yeasin`
 http://mftp.mmcheng.net/Papers/21TIP_LayerCAM.pdf <br>
 `LayerCAM: Exploring Hierarchical Class Activation Maps for Localization
 Peng-Tao Jiang; Chang-Bin Zhang; Qibin Hou; Ming-Ming Cheng; Yunchao Wei`
+
+https://arxiv.org/abs/1905.00780 <br>
+`Full-Gradient Representation for Neural Network Visualization
+Suraj Srinivas, Francois Fleuret`

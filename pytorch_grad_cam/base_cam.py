@@ -9,15 +9,6 @@ from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 
 
 class BaseCAM:
-<<<<<<< HEAD
-    def __init__(self, 
-                 model, 
-                 target_layer,
-                 use_cuda=False,
-                 reshape_transform=None,
-                 return_model_output=True):
-
-=======
     def __init__(self,
                  model: torch.nn.Module,
                  target_layers: List[torch.nn.Module],
@@ -25,20 +16,12 @@ class BaseCAM:
                  reshape_transform: Callable = None,
                  compute_input_gradient: bool = False,
                  uses_gradients: bool = True) -> None:
->>>>>>> a3d5c27a4fc2b78faef5729e0953770969bb8ecd
         self.model = model.eval()
         self.target_layers = target_layers
         self.cuda = use_cuda
         if self.cuda:
             self.model = model.cuda()
         self.reshape_transform = reshape_transform
-<<<<<<< HEAD
-        self.activations_and_grads = ActivationsAndGradients(self.model, 
-            target_layer, reshape_transform)
-        self.return_model_output = return_model_output
-    def forward(self, input_img):
-        return self.model(input_img)
-=======
         self.compute_input_gradient = compute_input_gradient
         self.uses_gradients = uses_gradients
         self.activations_and_grads = ActivationsAndGradients(
@@ -47,7 +30,6 @@ class BaseCAM:
     """ Get a vector of weights for every channel in the target layer.
         Methods that return weights channels,
         will typically need to only implement this function. """
->>>>>>> a3d5c27a4fc2b78faef5729e0953770969bb8ecd
 
     def get_cam_weights(self,
                         input_tensor: torch.Tensor,
@@ -85,42 +67,6 @@ class BaseCAM:
         if self.cuda:
             input_tensor = input_tensor.cuda()
 
-<<<<<<< HEAD
-        output = self.activations_and_grads(input_tensor)
-
-        if type(target_category) is int:
-            target_category = [target_category] * input_tensor.size(0)
-
-        if target_category is None:
-            target_category = np.argmax(output.cpu().data.numpy(), axis=-1)
-        else:
-            assert(len(target_category) == input_tensor.size(0))
-
-        self.model.zero_grad()
-        loss = self.get_loss(output, target_category)
-        loss.backward(retain_graph=True)
-
-        activations = self.activations_and_grads.activations[-1].cpu().data.numpy()
-        grads = self.activations_and_grads.gradients[-1].cpu().data.numpy()
-
-        cam = self.get_cam_image(input_tensor, target_category, 
-            activations, grads, eigen_smooth)
-
-        cam = np.maximum(cam, 0)
-
-        result = []
-        for img in cam:
-            img = cv2.resize(img, input_tensor.shape[-2:][::-1])
-            img = img - np.min(img)
-            img = img / np.max(img)
-            result.append(img)
-        result = np.float32(result)
-
-        if self.return_model_output:
-            return result, output
-
-        return result
-=======
         if self.compute_input_gradient:
             input_tensor = torch.autograd.Variable(input_tensor,
                                                    requires_grad=True)
@@ -193,7 +139,6 @@ class BaseCAM:
         cam_per_target_layer = np.maximum(cam_per_target_layer, 0)
         result = np.mean(cam_per_target_layer, axis=1)
         return scale_cam_image(result)
->>>>>>> a3d5c27a4fc2b78faef5729e0953770969bb8ecd
 
     def forward_augmentation_smoothing(self,
                                        input_tensor: torch.Tensor,
@@ -208,19 +153,9 @@ class BaseCAM:
         cams = []
         for transform in transforms:
             augmented_tensor = transform.augment_image(input_tensor)
-<<<<<<< HEAD
-
-            if self.return_model_output:
-                cam, output = self.forward(augmented_tensor,
-                                target_category, eigen_smooth)
-            else:
-                cam = self.forward(augmented_tensor,
-                    target_category, eigen_smooth)
-=======
             cam = self.forward(augmented_tensor,
                                targets,
                                eigen_smooth)
->>>>>>> a3d5c27a4fc2b78faef5729e0953770969bb8ecd
 
             # The ttach library expects a tensor of size BxCxHxW
             cam = cam[:, None, :, :]

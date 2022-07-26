@@ -7,30 +7,38 @@
 
 `pip install grad-cam`
 
+This is a package with state of the art methods for Explainable AI for computer vision.
+This can be used for diagnosing model predictions, either in production or while
+developing models.
+The aim is also to serve as a benchmark of algorithms and metrics for research of new explainability methods.
+
 ⭐ Comprehensive collection of Pixel Attribution methods for Computer Vision.
 
 ⭐ Tested on many Common CNN Networks and Vision Transformers.
 
-⭐ Works with Classification, Object Detection, and Semantic Segmentation.
+⭐ Advanced use cases: Works with Classification, Object Detection, Semantic Segmentation, Embedding-similarity and more.
 
 ⭐ Includes smoothing methods to make the CAMs look nice.
 
 ⭐ High performance: full support for batches of images in all methods.
 
+⭐ Includes metrics for checking if you can trust the explanations, and tuning them for best performance.
+
 ![visualization](https://github.com/jacobgil/jacobgil.github.io/blob/master/assets/cam_dog.gif?raw=true
 )
 
-| Method   | What it does |
-|----------|--------------|
-| GradCAM  | Weight the 2D activations by the average gradient |
-| GradCAM++  | Like GradCAM but uses second order gradients |
-| XGradCAM  | Like GradCAM but scale the gradients by the normalized activations |
-| AblationCAM  | Zero out activations and measure how the output drops (this repository includes a fast batched implementation) |
-| ScoreCAM  | Perbutate the image by the scaled activations and measure how the output drops |
-| EigenCAM  | Takes the first principle component of the 2D Activations (no class discrimination, but seems to give great results)|
-| EigenGradCAM  | Like EigenCAM but with class discrimination: First principle component of Activations*Grad. Looks like GradCAM, but cleaner|
-| LayerCAM  | Spatially weight the activations by positive gradients. Works better especially in lower layers |
-| FullGrad  | Computes the gradients of the biases from all over the network, and then sums them |
+| Method             | What it does                                                                                                                |
+|--------------------|-----------------------------------------------------------------------------------------------------------------------------|
+| GradCAM            | Weight the 2D activations by the average gradient                                                                           |
+| GradCAM++          | Like GradCAM but uses second order gradients                                                                                |
+| GradCAMElementWise | Like GradCAM but element-wise multiply the activations with the gradients                                                   |
+| XGradCAM           | Like GradCAM but scale the gradients by the normalized activations                                                          |
+| AblationCAM        | Zero out activations and measure how the output drops (this repository includes a fast batched implementation)              |
+| ScoreCAM           | Perbutate the image by the scaled activations and measure how the output drops                                              |
+| EigenCAM           | Takes the first principle component of the 2D Activations (no class discrimination, but seems to give great results)        |
+| EigenGradCAM       | Like EigenCAM but with class discrimination: First principle component of Activations*Grad. Looks like GradCAM, but cleaner |
+| LayerCAM           | Spatially weight the activations by positive gradients. Works better especially in lower layers                             |
+| FullGrad           | Computes the gradients of the biases from all over the network, and then sums them                                          |
 
 ## Visual Examples
 
@@ -42,6 +50,9 @@
 | Object Detection | Semantic Segmentation |
 | -----------------|-----------------------|
 | <img src="./examples/both_detection.png" width="256" height="256"> | <img src="./examples/cars_segmentation.png" width="256" height="200"> |
+
+## Explaining similarity to other images / embeddings
+<img src="./examples/embeddings.png">
 
 ## Classification
 
@@ -64,10 +75,10 @@
 | Cat    | ![](./examples/dog_cat.jfif) | ![](./examples/swinT_cat_gradcam_cam.jpg)     |  ![](./examples/swinT_cat_ablationcam_cam.jpg)   |![](./examples/swinT_cat_scorecam_cam.jpg)   |
 
 
-| Network  | Image | GradCAM  |  GradCAM++ |  Score-CAM |  Ablation-CAM |  Eigen-CAM |
-| ---------|-------|----------|------------|------------|---------------|------------|
-| VGG16    | ![](https://github.com/jacobgil/pytorch-grad-cam/blob/master/examples/horses.jpg?raw=true) |![](https://github.com/jacobgil/pytorch-grad-cam/blob/master/examples/vgg_horses_gradcam_cam.jpg?raw=true) | ![](https://github.com/jacobgil/pytorch-grad-cam/blob/master/examples/vgg_horses_gradcam++_cam.jpg?raw=true) | ![](https://github.com/jacobgil/pytorch-grad-cam/blob/master/examples/vgg_horses_scorecam_cam.jpg?raw=true) |  ![](https://github.com/jacobgil/pytorch-grad-cam/blob/master/examples/vgg_horses_ablationcam_cam.jpg?raw=true) | ![](https://github.com/jacobgil/pytorch-grad-cam/blob/master/examples/vgg_horses_eigencam_cam.jpg?raw=true) |
-| Resnet50    | ![](https://github.com/jacobgil/pytorch-grad-cam/blob/master/examples/horses.jpg?raw=true) |![](https://github.com/jacobgil/pytorch-grad-cam/blob/master/examples/resnet_horses_gradcam_cam.jpg?raw=true) | ![](https://github.com/jacobgil/pytorch-grad-cam/blob/master/examples/resnet_horses_gradcam++_cam.jpg?raw=true) | ![](https://github.com/jacobgil/pytorch-grad-cam/blob/master/examples/resnet_horses_scorecam_cam.jpg?raw=true) | ![](https://github.com/jacobgil/pytorch-grad-cam/blob/master/examples/resnet_horses_ablationcam_cam.jpg?raw=true) | ![](https://github.com/jacobgil/pytorch-grad-cam/blob/master/examples/resnet_horses_horses_eigencam_cam.jpg?raw=true)   |
+# Metrics and Evaluation for XAI
+
+<img src="./examples/metrics.png">
+<img src="./examples/road.png">
 
 
 ----------
@@ -80,6 +91,9 @@ Some common choices are:
 - mnasnet1_0: model.layers[-1]
 - ViT: model.blocks[-1].norm1
 - SwinT: model.layers[-1].blocks[-1].norm1
+
+If you pass a list with several layers, the CAM will be averaged accross them.
+This can be useful if you're not sure what layer will perform best.
 
 ----------
 
@@ -110,10 +124,11 @@ cam = GradCAM(model=model, target_layers=target_layers, use_cuda=args.use_cuda)
 # will be used for every image in the batch.
 # Here we use ClassifierOutputTarget, but you can define your own custom targets
 # That are, for example, combinations of categories, or specific outputs in a non standard model.
-targets = [e.g ClassifierOutputTarget(281)]
+
+targets = [ClassifierOutputTarget(281)]
 
 # You can also pass aug_smooth=True and eigen_smooth=True, to apply smoothing.
-grayscale_cam = cam(input_tensor=input_tensor, target_category=target_category)
+grayscale_cam = cam(input_tensor=input_tensor, targets=targets)
 
 # In this example grayscale_cam has only one image in the batch:
 grayscale_cam = grayscale_cam[0, :]
@@ -121,6 +136,34 @@ visualization = show_cam_on_image(rgb_img, grayscale_cam, use_rgb=True)
 ```
 
 ----------
+
+# Metrics and evaluating the explanations
+
+```python
+from pytorch_grad_cam.utils.model_targets import ClassifierOutputSoftmaxTarget
+from pytorch_grad_cam.metrics.cam_mult_image import CamMultImageConfidenceChange
+# Create the metric target, often the confidence drop in a score of some category
+metric_target = ClassifierOutputSoftmaxTarget(281)
+scores, batch_visualizations = CamMultImageConfidenceChange()(input_tensor, 
+  inverse_cams, targets, model, return_visualization=True)
+visualization = deprocess_image(batch_visualizations[0, :])
+
+# State of the art metric: Remove and Debias
+from pytorch_grad_cam.metrics.road import ROADMostRelevantFirst, ROADLeastRelevantFirst
+cam_metric = ROADMostRelevantFirst(percentile=75)
+scores, perturbation_visualizations = cam_metric(input_tensor, 
+  grayscale_cams, targets, model, return_visualization=True)
+
+# You can also average accross different percentiles, and combine
+# (LeastRelevantFirst - MostRelevantFirst) / 2
+from pytorch_grad_cam.metrics.road import ROADMostRelevantFirstAverage,
+                                          ROADLeastRelevantFirstAverage,
+                                          ROADCombined
+cam_metric = ROADCombined(percentiles=[20, 40, 60, 80])
+scores = cam_metric(input_tensor, grayscale_cams, targets, model)
+```
+----------
+
 
 # Advanced use cases and tutorials:
 
@@ -131,15 +174,19 @@ You will have to define objects that you can then pass to the CAM algorithms:
 1. A reshape_transform, that aggregates the layer outputs into 2D tensors that will be displayed.
 2. Model Targets, that define what target do you want to compute the visualizations for, for example a specific category, or a list of bounding boxes.
 
-Here you can find detailed examples of how to use this for Object detection, Semantic Segmentation, and Vision Transformers:
+Here you can find detailed examples of how to use this for various custom use cases like object detection:
 
 - [Notebook tutorial: Class Activation Maps for Object Detection with Faster-RCNN](<tutorials/Class Activation Maps for Object Detection With Faster RCNN.ipynb>)
 
+- [Notebook tutorial: Class Activation Maps for YOLO5](<tutorials/EigenCAM for YOLO5.ipynb>)
+
 - [Notebook tutorial: Class Activation Maps for Semantic Segmentation](<tutorials/Class Activation Maps for Semantic Segmentation.ipynb>)
 
-- [How it works with Vision/SwinT transformers](tutorials/vision_transformers.md)
+- [Notebook tutorial: Adapting pixel attribution methods for embedding outputs from models](<tutorials/Pixel Attribution for embeddings.ipynb>)
 
-*Contribution request for the community: more tutorials for custom use cases, like YOLO object detection, or image captioning.*
+- [Notebook tutorial: May the best explanation win. CAM Metrics and Tuning](<tutorials/CAM Metrics And Tuning Tutorial.ipynb>)
+
+- [How it works with Vision/SwinT transformers](tutorials/vision_transformers.md)
 
 
 ----------

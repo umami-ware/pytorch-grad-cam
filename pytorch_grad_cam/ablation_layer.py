@@ -80,7 +80,7 @@ class AblationLayerVit(AblationLayer):
 
     def __call__(self, x):
         output = self.activations
-        output = output.transpose(1, 2)
+        output = output.transpose(1, len(output.shape) - 1)
         for i in range(output.size(0)):
 
             # Commonly the minimum activation will be 0,
@@ -95,9 +95,17 @@ class AblationLayerVit(AblationLayer):
                 output[i, self.indices[i], :] = torch.min(
                     output) - ABLATION_VALUE
 
-        output = output.transpose(2, 1)
+        output = output.transpose(len(output.shape) - 1, 1)
 
         return output
+
+    def set_next_batch(self, input_batch_index, activations, num_channels_to_ablate):
+        """ This creates the next batch of activations from the layer.
+            Just take corresponding batch member from activations, and repeat it num_channels_to_ablate times.
+        """
+        repeat_params = [num_channels_to_ablate] + len(activations.shape[:-1]) * [1]
+        self.activations = activations[input_batch_index, :, :].clone().unsqueeze(0).repeat(*repeat_params)
+
 
 
 class AblationLayerFasterRCNN(AblationLayer):

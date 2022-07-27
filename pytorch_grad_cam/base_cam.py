@@ -15,7 +15,8 @@ class BaseCAM:
                  use_cuda: bool = False,
                  reshape_transform: Callable = None,
                  compute_input_gradient: bool = False,
-                 uses_gradients: bool = True) -> None:
+                 uses_gradients: bool = True,
+                  return_model_outputs=True) -> None:
         self.model = model.eval()
         self.target_layers = target_layers
         self.cuda = use_cuda
@@ -26,6 +27,7 @@ class BaseCAM:
         self.uses_gradients = uses_gradients
         self.activations_and_grads = ActivationsAndGradients(
             self.model, target_layers, reshape_transform)
+        self.return_model_outputs = return_model_outputs
 
     """ Get a vector of weights for every channel in the target layer.
         Methods that return weights channels,
@@ -93,7 +95,12 @@ class BaseCAM:
         cam_per_layer = self.compute_cam_per_layer(input_tensor,
                                                    targets,
                                                    eigen_smooth)
-        return self.aggregate_multi_layers(cam_per_layer)
+        result = self.aggregate_multi_layers(cam_per_layer)
+
+        if (self.return_model_outputs):
+            return result, outputs
+            
+        return result
 
     def get_target_width_height(self,
                                 input_tensor: torch.Tensor) -> Tuple[int, int]:
@@ -153,9 +160,14 @@ class BaseCAM:
         cams = []
         for transform in transforms:
             augmented_tensor = transform.augment_image(input_tensor)
-            cam = self.forward(augmented_tensor,
-                               targets,
-                               eigen_smooth)
+            if self.return_model_outputs:
+                cam, outputs = self.forward(augmented_tensor,
+                                            targets,
+                                            eigen_smooth)
+            else:
+                cam, outputs = self.forward(augmented_tensor,
+                                            targets,
+                                            eigen_smooth)
 
             # The ttach library expects a tensor of size BxCxHxW
             cam = cam[:, None, :, :]
@@ -169,8 +181,8 @@ class BaseCAM:
 
         cam = np.mean(np.float32(cams), axis=0)
 
-        if self.return_model_output:
-            return cam, output
+        if self.return_model_outputs:
+            return cam, outputs
         return cam
 
     def __call__(self,
